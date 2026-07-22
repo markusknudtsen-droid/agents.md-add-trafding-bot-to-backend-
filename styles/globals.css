@@ -130,3 +130,158 @@ code {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   Personal trading dashboard (/dashboard)
+   Always dark, with ambient RGB glow, a radar scanner and flowing portfolio.
+   ========================================================================== */
+
+.dash-root {
+  position: relative;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(56, 189, 248, 0.12), transparent 60%),
+    radial-gradient(1000px 500px at 100% 0%, rgba(168, 85, 247, 0.12), transparent 55%),
+    #05070c;
+  overflow: hidden;
+}
+
+/* Slow-drifting RGB aurora wash behind everything. */
+.dash-aurora {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 40% at 20% 30%, rgba(16, 185, 129, 0.16), transparent 70%),
+    radial-gradient(35% 45% at 80% 20%, rgba(244, 63, 94, 0.14), transparent 70%),
+    radial-gradient(45% 40% at 60% 90%, rgba(59, 130, 246, 0.16), transparent 70%);
+  filter: blur(30px);
+  animation: dash-aurora-drift 18s ease-in-out infinite alternate;
+}
+
+@keyframes dash-aurora-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(4%, 3%, 0) scale(1.08);
+  }
+}
+
+.dash-logo {
+  background: linear-gradient(135deg, #22d3ee, #a855f7);
+  color: #05070c;
+  box-shadow: 0 0 24px rgba(129, 140, 248, 0.5);
+}
+
+.dash-accent-ring {
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.25),
+    0 0 30px rgba(34, 211, 238, 0.12);
+}
+
+.dash-blink {
+  animation: dash-blink 1.4s ease-in-out infinite;
+}
+
+@keyframes dash-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* Radar */
+.dash-radar {
+  background: radial-gradient(circle at center, rgba(34, 211, 238, 0.05), transparent 70%);
+}
+
+.dash-radar-sweep {
+  background: conic-gradient(
+    from 0deg,
+    rgba(34, 211, 238, 0.35) 0deg,
+    rgba(34, 211, 238, 0.08) 24deg,
+    transparent 60deg,
+    transparent 360deg
+  );
+  mask: radial-gradient(circle at center, transparent 0, #000 2%, #000 100%);
+  -webkit-mask: radial-gradient(circle at center, transparent 0, #000 2%, #000 100%);
+  animation: dash-radar-spin 3.6s linear infinite;
+}
+
+@keyframes dash-radar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dash-blip {
+  animation: dash-blip-pulse 1.6s ease-out infinite;
+}
+
+@keyframes dash-blip-pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+}
+
+/* Flowing portfolio rows */
+.dash-stream {
+  background-size: 220% 100%;
+  animation: dash-stream-flow 3s linear infinite;
+}
+
+.dash-stream-reverse {
+  animation-direction: reverse;
+}
+
+@keyframes dash-stream-flow {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* Execution feed entry */
+.dash-trade-in {
+  animation: dash-trade-in 0.5s ease-out both;
+}
+
+@keyframes dash-trade-in {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+    filter: brightness(1.8);
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-aurora,
+  .dash-radar-sweep,
+  .dash-blip,
+  .dash-stream,
+  .dash-trade-in,
+  .dash-blink {
+    animation: none;
+  }
+}
+
