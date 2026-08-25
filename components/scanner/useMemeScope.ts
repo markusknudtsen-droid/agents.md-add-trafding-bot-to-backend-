@@ -15,19 +15,35 @@ import { useEffect, useRef, useState } from "react";
 export type Stage = "new" | "graduating" | "graduated";
 
 export interface Token {
-  id: number;
+  /** Simulated tokens use a counter; live tokens use their pair address. */
+  id: string | number;
   symbol: string;
   name: string;
   glyph: string;
   stage: Stage;
   /** Seconds since the token was minted. */
   age: number;
-  marketCap: number;
+  /**
+   * Optional because the bot's live scan feed does not report a market cap;
+   * cards fall back to liquidity rather than inventing a figure.
+   */
+  marketCap?: number;
   volume: number;
   liquidity: number;
-  holders: number;
+  /** Optional: holder counts are not available from the live scan feed. */
+  holders?: number;
+  /**
+   * Relative buy/sell weight, used to size the split bar. For simulated
+   * tokens these are true counts; for live tokens they are proportions
+   * derived from the real buy/sell ratio.
+   */
   buys: number;
   sells: number;
+  /**
+   * Real transaction count, when known. Absent for live tokens, whose feed
+   * reports only a ratio — the card shows a share instead of a fake total.
+   */
+  txnCount?: number;
   /** Bonding-curve completion, 0-100. Reaches 100 to graduate. */
   progress: number;
   /** Percentage price change over the token's life. */
@@ -36,6 +52,11 @@ export interface Token {
   pressure: number;
   /** Set briefly when the token just entered the feed, to flash the card. */
   fresh: boolean;
+  /**
+   * True for tokens from the bot's real scan feed. Cards use this to drop
+   * bonding-curve wording, which does not apply to already-trading pools.
+   */
+  live?: boolean;
 }
 
 const NAMES: Array<[string, string, string]> = [
@@ -90,6 +111,7 @@ function seedTokens(): Token[] {
       holders: 20 + Math.round(marketCap / 900),
       buys: 40 + i * 17,
       sells: 20 + i * 9,
+      txnCount: 60 + i * 26,
       progress,
       change,
       pressure,
@@ -135,7 +157,7 @@ export function useMemeScope(): MemeScope {
         const next = prev.tokens.map((t) => {
           const pressure = clamp(t.pressure * 0.85 + (Math.random() - 0.5) * 0.6, -1, 1);
           const drift = pressure * (Math.random() * 6);
-          const marketCap = Math.max(800, t.marketCap * (1 + drift / 100));
+          const marketCap = Math.max(800, (t.marketCap ?? t.liquidity) * (1 + drift / 100));
           const isBuy = pressure >= 0;
 
           // Bonding-curve progress only applies pre-graduation and tracks
@@ -151,6 +173,9 @@ export function useMemeScope(): MemeScope {
             }
           }
 
+          const nextBuys = t.buys + (isBuy ? Math.floor(Math.random() * 5) : 0);
+          const nextSells = t.sells + (!isBuy ? Math.floor(Math.random() * 4) : 0);
+
           return {
             ...t,
             stage,
@@ -160,9 +185,10 @@ export function useMemeScope(): MemeScope {
             change: clamp(t.change + drift, -95, 4000),
             volume: t.volume + Math.round(Math.random() * marketCap * 0.05),
             liquidity: Math.round(marketCap * (0.18 + Math.random() * 0.08)),
-            holders: t.holders + (Math.random() < 0.45 ? 1 + Math.floor(Math.random() * 4) : 0),
-            buys: t.buys + (isBuy ? Math.floor(Math.random() * 5) : 0),
-            sells: t.sells + (!isBuy ? Math.floor(Math.random() * 4) : 0),
+            holders: (t.holders ?? 0) + (Math.random() < 0.45 ? 1 + Math.floor(Math.random() * 4) : 0),
+            buys: nextBuys,
+            sells: nextSells,
+            txnCount: nextBuys + nextSells,
             age: t.age + 1,
             fresh: false,
           };
@@ -190,6 +216,8 @@ export function useMemeScope(): MemeScope {
 
         const [symbol, name, glyph] = NAMES[Math.floor(Math.random() * NAMES.length)];
         const marketCap = 1500 + Math.random() * 6000;
+        const buys = Math.floor(Math.random() * 12);
+        const sells = Math.floor(Math.random() * 4);
 
         const fresh: Token = {
           id: idRef.current++,
@@ -202,8 +230,9 @@ export function useMemeScope(): MemeScope {
           volume: Math.round(marketCap * 0.3),
           liquidity: Math.round(marketCap * 0.2),
           holders: 1 + Math.floor(Math.random() * 12),
-          buys: Math.floor(Math.random() * 12),
-          sells: Math.floor(Math.random() * 4),
+          buys,
+          sells,
+          txnCount: buys + sells,
           progress: Math.random() * 8,
           change: Math.random() * 40 - 8,
           pressure: 0.3 + Math.random() * 0.5,

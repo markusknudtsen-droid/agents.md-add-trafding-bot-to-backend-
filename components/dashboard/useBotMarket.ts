@@ -19,6 +19,12 @@ export interface Asset {
   change: number;
   /** Rolling flow value in [-1, 1]: positive = accumulating, negative = distributing. */
   flow: number;
+  /**
+   * Current worth of the holding, when it cannot be derived as
+   * `amount * price`. Live bot positions are sized in SOL while their price
+   * is quoted in USD, so they supply this directly.
+   */
+  value?: number;
 }
 
 export interface Signal {
@@ -35,7 +41,8 @@ export interface Signal {
 }
 
 export interface Trade {
-  id: number;
+  /** Simulated fills use a counter; live fills carry the bot's own trade id. */
+  id: string | number;
   symbol: string;
   side: Side;
   price: number;
