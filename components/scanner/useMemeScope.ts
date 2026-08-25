@@ -106,23 +106,33 @@ export interface MemeScope {
   totalVolume: number;
 }
 
+interface ScopeState {
+  tokens: Token[];
+  minted: number;
+  graduated: number;
+}
+
+function seedState(): ScopeState {
+  return { tokens: seedTokens(), minted: 0, graduated: 0 };
+}
+
 export function useMemeScope(): MemeScope {
-  const [tokens, setTokens] = useState<Token[]>(seedTokens);
+  const [scope, setScope] = useState<ScopeState>(seedState);
   const [live, setLive] = useState(false);
-  const [minted, setMinted] = useState(0);
-  const [graduated, setGraduated] = useState(0);
   const idRef = useRef(100);
 
   useEffect(() => {
     setLive(true);
 
     // Market tick: age tokens, move price/volume, advance the bonding curve
-    // and promote tokens between stages.
+    // and promote tokens between stages. Each tick is a single pure state
+    // update (tokens + counters together) so React can safely re-invoke the
+    // updater under StrictMode without double-counting graduations.
     const tick = setInterval(() => {
-      setTokens((prev) => {
+      setScope((prev) => {
         let justGraduated = 0;
 
-        const next = prev.map((t) => {
+        const next = prev.tokens.map((t) => {
           const pressure = clamp(t.pressure * 0.85 + (Math.random() - 0.5) * 0.6, -1, 1);
           const drift = pressure * (Math.random() * 6);
           const marketCap = Math.max(800, t.marketCap * (1 + drift / 100));
@@ -158,48 +168,53 @@ export function useMemeScope(): MemeScope {
           };
         });
 
-        if (justGraduated > 0) setGraduated((g) => g + justGraduated);
-
         // Retire the oldest graduated tokens so the column stays readable.
         const grads = next.filter((t) => t.stage === "graduated");
-        if (grads.length > 6) {
-          const cutoff = [...grads].sort((a, b) => b.age - a.age)[0];
-          return next.filter((t) => t.id !== cutoff.id);
-        }
-        return next;
+        const trimmed =
+          grads.length > 6
+            ? next.filter((t) => t.id !== [...grads].sort((a, b) => b.age - a.age)[0].id)
+            : next;
+
+        return {
+          tokens: trimmed,
+          minted: prev.minted,
+          graduated: prev.graduated + justGraduated,
+        };
       });
     }, 1000);
 
     // Mint fresh tokens into the "new" column.
     const mint = setInterval(() => {
-      setTokens((prev) => {
-        if (prev.filter((t) => t.stage === "new").length >= 6) return prev;
+      setScope((prev) => {
+        if (prev.tokens.filter((t) => t.stage === "new").length >= 6) return prev;
 
         const [symbol, name, glyph] = NAMES[Math.floor(Math.random() * NAMES.length)];
         const marketCap = 1500 + Math.random() * 6000;
-        setMinted((m) => m + 1);
 
-        return [
-          {
-            id: idRef.current++,
-            symbol,
-            name,
-            glyph,
-            stage: "new" as Stage,
-            age: 0,
-            marketCap,
-            volume: Math.round(marketCap * 0.3),
-            liquidity: Math.round(marketCap * 0.2),
-            holders: 1 + Math.floor(Math.random() * 12),
-            buys: Math.floor(Math.random() * 12),
-            sells: Math.floor(Math.random() * 4),
-            progress: Math.random() * 8,
-            change: Math.random() * 40 - 8,
-            pressure: 0.3 + Math.random() * 0.5,
-            fresh: true,
-          },
-          ...prev,
-        ];
+        const fresh: Token = {
+          id: idRef.current++,
+          symbol,
+          name,
+          glyph,
+          stage: "new",
+          age: 0,
+          marketCap,
+          volume: Math.round(marketCap * 0.3),
+          liquidity: Math.round(marketCap * 0.2),
+          holders: 1 + Math.floor(Math.random() * 12),
+          buys: Math.floor(Math.random() * 12),
+          sells: Math.floor(Math.random() * 4),
+          progress: Math.random() * 8,
+          change: Math.random() * 40 - 8,
+          pressure: 0.3 + Math.random() * 0.5,
+          fresh: true,
+        };
+
+        return {
+          tokens: [fresh, ...prev.tokens],
+          minted: prev.minted + 1,
+          graduated: prev.graduated,
+        };
       });
     }, 3200);
 
@@ -209,7 +224,13 @@ export function useMemeScope(): MemeScope {
     };
   }, []);
 
-  const totalVolume = tokens.reduce((sum, t) => sum + t.volume, 0);
+  const totalVolume = scope.tokens.reduce((sum, t) => sum + t.volume, 0);
 
-  return { live, tokens, minted, graduated, totalVolume };
+  return {
+    live,
+    tokens: scope.tokens,
+    minted: scope.minted,
+    graduated: scope.graduated,
+    totalVolume,
+  };
 }
