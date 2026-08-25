@@ -285,3 +285,61 @@ code {
   }
 }
 
+/* ==========================================================================
+   Memescope token scanner (/scanner)
+   Lifecycle columns of meme tokens, lit by live buy/sell pressure.
+   ========================================================================== */
+
+.scan-card {
+  transition:
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+/* Newly minted tokens flash in as they hit the feed. */
+.scan-card-fresh {
+  animation: scan-card-in 0.7s ease-out both;
+}
+
+@keyframes scan-card-in {
+  0% {
+    transform: translateY(-10px) scale(0.97);
+    opacity: 0;
+    filter: brightness(2.2);
+  }
+  60% {
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+/* Pressure stream sweeping across each token card. */
+.scan-stream {
+  background-size: 220% 100%;
+  animation: scan-stream-flow 3s linear infinite;
+}
+
+.scan-stream-reverse {
+  animation-direction: reverse;
+}
+
+@keyframes scan-stream-flow {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-card-fresh,
+  .scan-stream {
+    animation: none;
+  }
+}
+
