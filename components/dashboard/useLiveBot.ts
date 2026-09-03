@@ -180,14 +180,47 @@ export function useLiveBot(): LiveBot {
 
   useEffect(() => {
     let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const cancelled = () => stopped;
 
-    void poll(cancelled);
-    const timer = setInterval(() => void poll(cancelled), POLL_INTERVAL_MS);
+    // Self-scheduling rather than setInterval: the bot client allows each
+    // request up to 8s, so a fixed 5s interval could start a new cycle before
+    // the previous one returned. Overlapping cycles can resolve out of order
+    // and let a stale response overwrite fresher state — including flipping
+    // `connected` back on after the bot has actually gone away. Waiting for
+    // each cycle to finish keeps exactly one in flight.
+    const scheduleNext = () => {
+      if (stopped) return;
+      timer = setTimeout(() => void run(), POLL_INTERVAL_MS);
+    };
+
+    const run = async () => {
+      if (stopped) return;
+      // A hidden tab is not being read, and each cycle is four authenticated
+      // round-trips to the bot — don't spend them on nobody.
+      if (document.visibilityState === "hidden") {
+        scheduleNext();
+        return;
+      }
+      await poll(cancelled);
+      scheduleNext();
+    };
+
+    void run();
+
+    // Refresh the moment the operator looks back at the tab, instead of
+    // showing them stale numbers until the next interval elapses.
+    const onVisibilityChange = () => {
+      if (stopped || document.visibilityState !== "visible") return;
+      if (timer) clearTimeout(timer);
+      void run();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       stopped = true;
-      clearInterval(timer);
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [poll]);
 
