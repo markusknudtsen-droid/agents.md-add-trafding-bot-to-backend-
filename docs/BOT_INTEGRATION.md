@@ -40,10 +40,16 @@ secrets in its own private repo means nothing sensitive is ever published here.
    ```bash
    BOT_API_URL=http://localhost:4000
    BOT_DASHBOARD_PASSWORD=the-password-you-hashed-for-the-bot
+
+   # Required before deploying anywhere public:
+   DASHBOARD_BASIC_AUTH_USER=you
+   DASHBOARD_BASIC_AUTH_PASSWORD=a-long-random-passphrase
    ```
 
    `BOT_DASHBOARD_PASSWORD` is the plaintext password matching the bot's
-   `DASHBOARD_PASSWORD_HASH`. `.env.local` is gitignored.
+   `DASHBOARD_PASSWORD_HASH`. The `DASHBOARD_BASIC_AUTH_*` pair is what stops
+   strangers reaching your bot through this app — see **Safety boundaries**.
+   `.env.local` is gitignored.
 
 3. Start this app:
 
@@ -90,6 +96,22 @@ absolute transaction counts — render as `—` rather than being invented. The
 buy/sell bar shows the real ratio as a share.
 
 ## Safety boundaries
+
+- **The dashboard is password-gated.** `/dashboard`, `/scanner` and every
+  `/api/bot/*` route sit behind HTTP Basic Auth (`middleware.ts`), using
+  `DASHBOARD_BASIC_AUTH_USER` / `DASHBOARD_BASIC_AUTH_PASSWORD`.
+
+  This is a separate gate from `BOT_DASHBOARD_PASSWORD`, and the distinction
+  matters: `BOT_DASHBOARD_PASSWORD` authenticates *this app to the bot*, while
+  Basic Auth authenticates *you to this app*. Without the second gate the proxy
+  happily performs authenticated bot calls on behalf of any anonymous visitor —
+  including `PUT /api/bot/settings`, which pauses the live bot and changes its
+  risk thresholds.
+
+  A **production build fails closed**: if the two variables are unset it
+  returns `503` for those routes rather than exposing a live trading bot. Local
+  `pnpm dev` stays unauthenticated for convenience. The public marketing page
+  at `/` is unaffected.
 
 - **No money can move from this dashboard.** The bot's vault and withdrawal
   routes are deliberately not proxied. Withdrawals stay in the bot's own Vault
