@@ -73,7 +73,7 @@ export default function TokenCard({ token: t }: TokenCardProps) {
 
           <div className="shrink-0 text-right">
             <div className="font-mono text-sm font-semibold tabular-nums text-white">
-              {compactUsd(t.marketCap)}
+              {compactUsd(t.marketCap ?? t.liquidity)}
             </div>
             <div
               className={`font-mono text-[11px] tabular-nums ${
@@ -90,8 +90,10 @@ export default function TokenCard({ token: t }: TokenCardProps) {
           {[
             ["V", compactUsd(t.volume)],
             ["LIQ", compactUsd(t.liquidity)],
-            ["HLD", compactNumber(t.holders)],
-            ["TXN", compactNumber(t.buys + t.sells)],
+            // The live scan feed reports no holder count — show a dash rather
+            // than inventing one on a card about real money.
+            ["HLD", t.holders === undefined ? "—" : compactNumber(t.holders)],
+            ["TXN", t.txnCount === undefined ? "—" : compactNumber(t.txnCount)],
           ].map(([label, value]) => (
             <div key={label} className="rounded-lg bg-white/[0.04] py-1">
               <dt className="text-[9px] uppercase tracking-wide text-white/30">
@@ -116,7 +118,9 @@ export default function TokenCard({ token: t }: TokenCardProps) {
             <div className="h-full flex-1 bg-rose-400/70" />
           </div>
           <span className="font-mono text-[9px] tabular-nums text-white/40">
-            {compactNumber(t.buys)}B / {compactNumber(t.sells)}S
+            {t.txnCount === undefined
+              ? `${Math.round((t.buys / Math.max(1, t.buys + t.sells)) * 100)}% buys`
+              : `${compactNumber(t.buys)}B / ${compactNumber(t.sells)}S`}
           </span>
         </div>
 
@@ -140,7 +144,7 @@ export default function TokenCard({ token: t }: TokenCardProps) {
         ) : (
           <div className="mt-2 flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-cyan-300">
             <span className="h-1 w-1 rounded-full bg-cyan-300" />
-            graduated to pool
+            {t.live ? "established pool" : "graduated to pool"}
           </div>
         )}
       </div>

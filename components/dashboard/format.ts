@@ -50,3 +50,20 @@ export function compactUsd(value: number): string {
 export function signed(value: number, digits = 2): string {
   return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
 }
+
+/**
+ * SOL amounts, e.g. `◎0.4210`.
+ *
+ * Live bot positions are denominated in SOL, not dollars — rendering them
+ * through `usd()` would put a `$` in front of a SOL figure and misstate what
+ * is actually at risk, so live mode formats through here instead.
+ */
+export function sol(value: number, digits = 4): string {
+  const sign = value < 0 ? "-" : "";
+  return `${sign}◎${Math.abs(value).toFixed(digits)}`;
+}
+
+export function compactSol(value: number): string {
+  const sign = value < 0 ? "-" : "";
+  return `${sign}◎${compactNumber(Math.abs(value))}`;
+}

@@ -1,10 +1,17 @@
 import React from "react";
 import type { Asset } from "./useBotMarket";
-import { usd, compactUsd, signed } from "./format";
+import { usd, compactUsd, sol, compactSol, signed } from "./format";
 
 interface FlowingPortfolioProps {
   assets: Asset[];
   totalValue: number;
+  /**
+   * Which currency the numbers are in. Live bot positions are sized in SOL;
+   * the simulation prices its universe in dollars.
+   */
+  denomination?: "usd" | "sol";
+  /** Overrides the "RGB light tracks…" caption, e.g. to explain live flow. */
+  caption?: string;
 }
 
 /**
@@ -17,7 +24,13 @@ interface FlowingPortfolioProps {
 export default function FlowingPortfolio({
   assets,
   totalValue,
+  denomination = "usd",
+  caption = "RGB light tracks live buy / sell pressure",
 }: FlowingPortfolioProps) {
+  const isSol = denomination === "sol";
+  const total = (value: number) => (isSol ? compactSol(value) : compactUsd(value));
+  const size = (value: number) => (isSol ? sol(value) : usd(value, 0, 0));
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur">
       <header className="mb-5 flex items-end justify-between">
@@ -25,13 +38,11 @@ export default function FlowingPortfolio({
           <h2 className="text-sm font-semibold tracking-wide text-white">
             Flowing Portfolio
           </h2>
-          <p className="text-xs text-white/40">
-            RGB light tracks live buy / sell pressure
-          </p>
+          <p className="text-xs text-white/40">{caption}</p>
         </div>
         <div className="text-right">
           <div className="text-lg font-semibold tabular-nums text-white">
-            {compactUsd(totalValue)}
+            {total(totalValue)}
           </div>
           <div className="text-[11px] text-white/40">total value</div>
         </div>
@@ -42,7 +53,7 @@ export default function FlowingPortfolio({
           const buy = a.flow >= 0;
           const intensity = Math.min(1, Math.abs(a.flow));
           const rgb = buy ? "16,185,129" : "244,63,94";
-          const value = a.amount * a.price;
+          const value = a.value ?? a.amount * a.price;
           const weight = totalValue > 0 ? (value / totalValue) * 100 : 0;
 
           return (
@@ -84,14 +95,16 @@ export default function FlowingPortfolio({
                   <div>
                     <div className="text-sm font-medium text-white">{a.name}</div>
                     <div className="font-mono text-[11px] tabular-nums text-white/40">
-                      {a.amount.toFixed(a.price > 1000 ? 3 : 1)} @ {usd(a.price)}
+                      {isSol
+                        ? `${sol(a.amount)} in @ ${usd(a.price, 0, 8)}`
+                        : `${a.amount.toFixed(a.price > 1000 ? 3 : 1)} @ ${usd(a.price)}`}
                     </div>
                   </div>
                 </div>
 
                 <div className="text-right">
                   <div className="text-sm font-semibold tabular-nums text-white">
-                    {usd(value, 0, 0)}
+                    {size(value)}
                   </div>
                   <div
                     className={`font-mono text-[11px] tabular-nums ${

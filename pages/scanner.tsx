@@ -3,12 +3,19 @@ import Head from "next/head";
 import Link from "next/link";
 
 import { useMemeScope } from "@/components/scanner/useMemeScope";
+import { toScannerTokens } from "@/components/scanner/liveTokens";
 import ScannerColumn from "@/components/scanner/ScannerColumn";
 import StatCard from "@/components/dashboard/StatCard";
+import ModeBadge from "@/components/dashboard/ModeBadge";
+import { useLiveBot } from "@/components/dashboard/useLiveBot";
 import { compactUsd } from "@/components/dashboard/format";
 
 export default function ScannerPage() {
-  const { live, tokens, minted, graduated, totalVolume } = useMemeScope();
+  const bot = useLiveBot();
+  const sim = useMemeScope();
+
+  const isLive = bot.connected;
+  const tokens = isLive ? toScannerTokens(bot.tokens) : sim.tokens;
 
   const newTokens = tokens.filter((t) => t.stage === "new");
   const graduating = tokens
@@ -16,9 +23,12 @@ export default function ScannerPage() {
     .sort((a, b) => b.progress - a.progress);
   const graduatedTokens = tokens
     .filter((t) => t.stage === "graduated")
-    .sort((a, b) => b.marketCap - a.marketCap);
+    .sort((a, b) => (b.marketCap ?? b.liquidity) - (a.marketCap ?? a.liquidity));
 
   const buying = tokens.filter((t) => t.pressure >= 0).length;
+  const totalVolume = isLive
+    ? tokens.reduce((sum, t) => sum + t.volume, 0)
+    : sim.totalVolume;
 
   return (
     <>
@@ -26,7 +36,7 @@ export default function ScannerPage() {
         <title>Memescope · Token Scanner</title>
         <meta
           name="description"
-          content="Live meme-token scanner with lifecycle columns and RGB buy/sell pressure lighting."
+          content="Live token scanner wired to a Solana trading bot, with lifecycle columns and RGB buy/sell pressure lighting."
         />
       </Head>
 
@@ -42,20 +52,15 @@ export default function ScannerPage() {
               <div>
                 <h1 className="text-lg font-semibold leading-tight">Memescope</h1>
                 <p className="text-xs text-white/40">
-                  Live token scanner · RGB buy / sell pressure
+                  {isLive
+                    ? "Your bot's live scan feed · RGB buy / sell pressure"
+                    : "Simulated token scanner · RGB buy / sell pressure"}
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/70">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    live ? "bg-emerald-400 dash-blink" : "bg-white/30"
-                  }`}
-                />
-                {live ? "Streaming" : "Connecting…"}
-              </span>
+              <ModeBadge live={isLive} ready={bot.ready} error={bot.error} />
               <Link
                 href="/dashboard"
                 className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10 hover:text-white"
@@ -76,19 +81,23 @@ export default function ScannerPage() {
             <StatCard
               label="Tracking"
               value={String(tokens.length)}
-              sub={`${minted} minted this session`}
+              sub={
+                isLive
+                  ? "candidates passing bot filters"
+                  : `${sim.minted} minted this session`
+              }
               accent
             />
             <StatCard
               label="Total Volume"
               value={compactUsd(totalVolume)}
-              sub="across all tracked tokens"
+              sub="24h across tracked tokens"
             />
             <StatCard
-              label="Graduated"
-              value={String(graduated)}
-              sub="hit 100% bonding curve"
-              tone={graduated > 0 ? "up" : "neutral"}
+              label={isLive ? "Established" : "Graduated"}
+              value={String(isLive ? graduatedTokens.length : sim.graduated)}
+              sub={isLive ? "pools older than 7 days" : "hit 100% bonding curve"}
+              tone={(isLive ? graduatedTokens.length : sim.graduated) > 0 ? "up" : "neutral"}
             />
             <StatCard
               label="Buy Pressure"
@@ -101,27 +110,41 @@ export default function ScannerPage() {
           {/* Lifecycle columns */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <ScannerColumn
-              title="Newly Minted"
-              hint="Fresh pairs, seconds old — highest risk, highest velocity."
+              title={isLive ? "Fresh Pairs" : "Newly Minted"}
+              hint={
+                isLive
+                  ? "Live pairs under 24h old — highest risk, highest velocity."
+                  : "Fresh pairs, seconds old — highest risk, highest velocity."
+              }
               accent="#22d3ee"
               tokens={newTokens}
             />
             <ScannerColumn
-              title="About to Graduate"
-              hint="Climbing the bonding curve toward a real pool."
+              title={isLive ? "Building Depth" : "About to Graduate"}
+              hint={
+                isLive
+                  ? "Under a week old, still growing liquidity toward a deep pool."
+                  : "Climbing the bonding curve toward a real pool."
+              }
               accent="#a855f7"
               tokens={graduating}
             />
             <ScannerColumn
-              title="Graduated"
-              hint="Completed the curve and migrated to a DEX pool."
+              title={isLive ? "Established" : "Graduated"}
+              hint={
+                isLive
+                  ? "Older than a week with real depth behind them."
+                  : "Completed the curve and migrated to a DEX pool."
+              }
               accent="#10b981"
               tokens={graduatedTokens}
             />
           </div>
 
           <footer className="mt-10 text-center text-[11px] text-white/25">
-            Simulated market data · front-end demo · no live chain connection
+            {isLive
+              ? "Live DexScreener candidates from your bot's scanner · holder and market-cap figures are not in this feed"
+              : "Simulated market data · no bot connected · front-end demo"}
           </footer>
         </div>
       </div>

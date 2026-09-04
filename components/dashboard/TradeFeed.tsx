@@ -1,9 +1,11 @@
 import React from "react";
 import type { Trade } from "./useBotMarket";
-import { usd } from "./format";
+import { usd, sol } from "./format";
 
 interface TradeFeedProps {
   trades: Trade[];
+  /** Live fills are sized in SOL; simulated fills are sized in units. */
+  denomination?: "usd" | "sol";
 }
 
 function timeAgo(ts: number): string {
@@ -16,7 +18,9 @@ function timeAgo(ts: number): string {
  * Flowing feed of executed trades. Each new fill slides in and flashes its
  * RGB colour — emerald for buys, rose for sells.
  */
-export default function TradeFeed({ trades }: TradeFeedProps) {
+export default function TradeFeed({ trades, denomination = "usd" }: TradeFeedProps) {
+  const size = (value: number) => (denomination === "sol" ? sol(value) : String(value));
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur">
       <header className="mb-4 flex items-center justify-between">
@@ -58,7 +62,7 @@ export default function TradeFeed({ trades }: TradeFeedProps) {
                     {t.symbol}
                   </span>
                   <span className="font-mono text-[11px] tabular-nums text-white/40">
-                    {t.amount} @ {usd(t.price)}
+                    {size(t.amount)} @ {usd(t.price, 0, t.price < 1 ? 8 : 2)}
                   </span>
                 </div>
                 <span className="font-mono text-[11px] tabular-nums text-white/30">
