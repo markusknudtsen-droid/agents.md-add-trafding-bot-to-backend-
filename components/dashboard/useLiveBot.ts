@@ -130,9 +130,37 @@ export interface LiveBot {
   busy: boolean;
 }
 
+/**
+ * Every `/api/bot/*` route replies with the `{ connected, data, error }`
+ * envelope (see `lib/bot/route.ts` and `middleware.ts`), so this is not
+ * expected to fail — but never assume a fetch response is JSON just because
+ * the code that sent it usually returns JSON. A host's own error page (a
+ * proxy timeout, a platform-level 502) would not be, and parsing that as
+ * JSON throws a raw `SyntaxError` that tells the operator nothing. Falling
+ * back to the response's status text keeps that case a readable envelope
+ * instead of a swallowed exception.
+ */
+async function readEnvelope<T>(response: Response): Promise<BotEnvelope<T>> {
+  const text = await response.text();
+  try {
+    return JSON.parse(text) as BotEnvelope<T>;
+  } catch {
+    // `.trim()` only strips the ends of the string, so it would not remove
+    // a dangling space before the closing paren when statusText is empty
+    // (e.g. "HTTP 503 )"). Only include the space when there is text to put
+    // after it.
+    const statusText = response.statusText ? ` ${response.statusText}` : "";
+    return {
+      connected: false,
+      data: null,
+      error: `Unexpected response (HTTP ${response.status}${statusText}).`,
+    };
+  }
+}
+
 async function getJson<T>(url: string): Promise<BotEnvelope<T>> {
   const response = await fetch(url, { headers: { accept: "application/json" } });
-  return (await response.json()) as BotEnvelope<T>;
+  return readEnvelope<T>(response);
 }
 
 export function useLiveBot(): LiveBot {
@@ -234,7 +262,7 @@ export function useLiveBot(): LiveBot {
         // is its master switch. Drive both so the state is unambiguous.
         body: JSON.stringify({ override_enabled: paused, active_status: !paused }),
       });
-      const body = (await response.json()) as BotEnvelope<BotSettings>;
+      const body = await readEnvelope<BotSettings>(response);
       if (body.connected && body.data) {
         setSettings(body.data);
         setError(null);

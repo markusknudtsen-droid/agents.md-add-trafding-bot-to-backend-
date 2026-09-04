@@ -24,15 +24,35 @@ function isProtected(pathname: string): boolean {
   return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-function unauthorized(): NextResponse {
-  return new NextResponse("Authentication required.", {
-    status: 401,
-    headers: { "www-authenticate": 'Basic realm="Trading Dashboard"' },
-  });
+/**
+ * `/api/bot/*` handlers always respond with the `{ connected, data, error }`
+ * envelope (see `lib/bot/route.ts`), and the client parses every response
+ * through `readEnvelope()` expecting that shape. A denial from *this*
+ * middleware is the one place that could break that contract, so API routes
+ * get the same envelope instead of plain text: otherwise `readEnvelope()`
+ * falls back to a generic "unexpected response" message instead of the real
+ * reason (not logged in, not configured).
+ *
+ * Page routes (`/dashboard`, `/scanner`) keep a plain-text body — the
+ * `www-authenticate` header is what matters there, to trigger the browser's
+ * native Basic Auth prompt on navigation.
+ */
+function denial(pathname: string, status: 401 | 503, message: string): NextResponse {
+  const headers: HeadersInit =
+    status === 401 ? { "www-authenticate": 'Basic realm="Trading Dashboard"' } : {};
+
+  if (pathname.startsWith("/api/bot")) {
+    return NextResponse.json(
+      { connected: false, data: null, error: message },
+      { status, headers }
+    );
+  }
+  return new NextResponse(message, { status, headers });
 }
 
 export function middleware(req: NextRequest): NextResponse {
-  if (!isProtected(req.nextUrl.pathname)) {
+  const { pathname } = req.nextUrl;
+  if (!isProtected(pathname)) {
     return NextResponse.next();
   }
 
@@ -44,9 +64,10 @@ export function middleware(req: NextRequest): NextResponse {
     // silently serve a live trading bot's controls to the public internet.
     // Local development stays unauthenticated for convenience.
     if (process.env.NODE_ENV === "production") {
-      return new NextResponse(
-        "Dashboard is not configured. Set DASHBOARD_BASIC_AUTH_USER and DASHBOARD_BASIC_AUTH_PASSWORD.",
-        { status: 503 }
+      return denial(
+        pathname,
+        503,
+        "Dashboard is not configured. Set DASHBOARD_BASIC_AUTH_USER and DASHBOARD_BASIC_AUTH_PASSWORD."
       );
     }
     return NextResponse.next();
@@ -63,7 +84,7 @@ export function middleware(req: NextRequest): NextResponse {
     }
   }
 
-  return unauthorized();
+  return denial(pathname, 401, "Authentication required.");
 }
 
 export const config = {
