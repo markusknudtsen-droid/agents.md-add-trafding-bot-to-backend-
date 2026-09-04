@@ -26,12 +26,12 @@ function isProtected(pathname: string): boolean {
 
 /**
  * `/api/bot/*` handlers always respond with the `{ connected, data, error }`
- * envelope (see `lib/bot/route.ts`) — every client fetch calls `.json()`
- * unconditionally rather than checking content-type first. A denial from
- * *this* middleware is the one place that could break that contract, so API
- * routes get the same envelope shape instead of plain text: otherwise
- * `.json()` throws, and the real reason (not logged in, not configured) gets
- * lost behind a generic "could not reach the bot" error.
+ * envelope (see `lib/bot/route.ts`), and the client parses every response
+ * through `readEnvelope()` expecting that shape. A denial from *this*
+ * middleware is the one place that could break that contract, so API routes
+ * get the same envelope instead of plain text: otherwise `readEnvelope()`
+ * falls back to a generic "unexpected response" message instead of the real
+ * reason (not logged in, not configured).
  *
  * Page routes (`/dashboard`, `/scanner`) keep a plain-text body — the
  * `www-authenticate` header is what matters there, to trigger the browser's

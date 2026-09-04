@@ -145,10 +145,15 @@ async function readEnvelope<T>(response: Response): Promise<BotEnvelope<T>> {
   try {
     return JSON.parse(text) as BotEnvelope<T>;
   } catch {
+    // `.trim()` only strips the ends of the string, so it would not remove
+    // a dangling space before the closing paren when statusText is empty
+    // (e.g. "HTTP 503 )"). Only include the space when there is text to put
+    // after it.
+    const statusText = response.statusText ? ` ${response.statusText}` : "";
     return {
       connected: false,
       data: null,
-      error: `Unexpected response (HTTP ${response.status} ${response.statusText || ""}).`.trim(),
+      error: `Unexpected response (HTTP ${response.status}${statusText}).`,
     };
   }
 }
